@@ -399,18 +399,6 @@ tests/      golden.json (+ fp16_tolerance.json, measured on the T4), test_*.py
 notebooks/  kaggle_benchmarks.ipynb
 ```
 
-## Resume lines (every number measured, from `bench/results/headline.json` and `results.md`)
-
-- Built an LLM inference server from scratch in PyTorch (own Qwen2.5 forward pass, continuous
-  batching, paged KV cache with preemption, OpenAI-compatible streaming API), reaching **3.7×** the
-  throughput of static batching on a T4 GPU and serving **2×** static batching's peak at 8 req/s with
-  p99 time-to-first-token of **121 ms**.
-- Designed a block-based KV-cache allocator with ref-counted prefix sharing and preemption that fit
-  **17×** more concurrent requests than contiguous allocation in the same memory (170 vs 10 at
-  256 MiB), cutting allocated-but-unused KV from 83% to 2%.
-- Benchmarked against vLLM under Poisson and closed-loop load on the same model and GPU, reaching
-  **52–59%** of its throughput from 8 to 128 concurrent users; profiled the gap to Python launch
-  overhead and recovered **2.4×** throughput at low concurrency with batch-size-aware CUDA graphs.
 
 ## References
 
