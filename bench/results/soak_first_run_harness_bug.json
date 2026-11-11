@@ -1,0 +1,256 @@
+{
+ "passed": false,
+ "totals": {
+  "completed": 5998,
+  "failed": 602
+ },
+ "samples": [
+  {
+   "minute": 1,
+   "completed": 199,
+   "failed": 21,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 2,
+   "completed": 200,
+   "failed": 20,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 3,
+   "completed": 201,
+   "failed": 19,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 4,
+   "completed": 192,
+   "failed": 28,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 5,
+   "completed": 200,
+   "failed": 20,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 6,
+   "completed": 198,
+   "failed": 22,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 7,
+   "completed": 197,
+   "failed": 23,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 8,
+   "completed": 204,
+   "failed": 16,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 9,
+   "completed": 203,
+   "failed": 17,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 10,
+   "completed": 202,
+   "failed": 18,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 11,
+   "completed": 205,
+   "failed": 15,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 12,
+   "completed": 203,
+   "failed": 17,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 13,
+   "completed": 200,
+   "failed": 20,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 14,
+   "completed": 194,
+   "failed": 26,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 15,
+   "completed": 203,
+   "failed": 17,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 16,
+   "completed": 201,
+   "failed": 19,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 17,
+   "completed": 199,
+   "failed": 21,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 18,
+   "completed": 202,
+   "failed": 18,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 19,
+   "completed": 206,
+   "failed": 14,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 20,
+   "completed": 199,
+   "failed": 21,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 21,
+   "completed": 203,
+   "failed": 17,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 22,
+   "completed": 197,
+   "failed": 23,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 23,
+   "completed": 201,
+   "failed": 19,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 24,
+   "completed": 198,
+   "failed": 22,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 25,
+   "completed": 197,
+   "failed": 23,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 26,
+   "completed": 201,
+   "failed": 19,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 27,
+   "completed": 198,
+   "failed": 22,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 28,
+   "completed": 194,
+   "failed": 26,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 29,
+   "completed": 198,
+   "failed": 22,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  },
+  {
+   "minute": 30,
+   "completed": 203,
+   "failed": 17,
+   "idle": true,
+   "gpu_memory_allocated_bytes": 13922826240.0,
+   "kv_free_blocks": 65652.0
+  }
+ ],
+ "args": {
+  "base_url": "http://localhost:8000",
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "tokenizer": "Qwen/Qwen2.5-0.5B-Instruct",
+  "minutes": 30.0,
+  "rate": 4.0
+ }
+}

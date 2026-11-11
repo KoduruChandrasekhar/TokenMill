@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.venv/
+build/
+dist/
+bench/results/logs/
+bench/results/profile/*trace*.json
+.ipynb_checkpoints/

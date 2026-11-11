@@ -1,0 +1,100 @@
+1
+00:00:00,450 --> 00:00:06,119
+This is infer: an LLM inference server I built from scratch in PyTorch.
+
+2
+00:00:06,469 --> 00:00:15,768
+It serves Qwen2.5-0.5B with its own forward pass, and I measured it against vLLM on the same GPU.
+
+3
+00:00:16,918 --> 00:00:19,094
+Two threads split the work.
+
+4
+00:00:19,444 --> 00:00:26,543
+The API side runs on an asyncio event loop: it handles HTTP, tokenization and streaming.
+
+5
+00:00:26,893 --> 00:00:34,723
+The engine thread owns the GPU. Every step, the scheduler decides who prefills, who decodes and who is preempted.
+
+6
+00:00:35,073 --> 00:00:40,040
+Then one forward pass serves them all, reading and writing a paged KV cache.
+
+7
+00:00:41,190 --> 00:00:45,625
+Here it is end to end, running on this laptop's CPU.
+
+8
+00:00:45,974 --> 00:00:49,756
+The server loads the weights and sizes its KV cache.
+
+9
+00:00:50,906 --> 00:00:56,584
+A plain curl request streams tokens back as server-sent events, in OpenAI's format.
+
+10
+00:00:58,763 --> 00:01:04,353
+Because the API is OpenAI-compatible, the official Python client works unchanged.
+
+11
+00:01:09,093 --> 00:01:15,128
+The server exports Prometheus metrics: requests, KV usage and tokens.
+
+12
+00:01:16,278 --> 00:01:23,387
+Now eight requests at once. They share every forward pass, so every stream advances on every step.
+
+13
+00:01:31,779 --> 00:01:36,746
+On a T4 GPU, the same server streams fifty requests at once.
+
+14
+00:01:37,096 --> 00:01:45,160
+Forty-nine share each forward pass, the KV cache stays under one percent full, and all fifty finish in about seven seconds.
+
+15
+00:01:46,310 --> 00:01:51,813
+The benchmarks ran for about seventeen GPU hours on Kaggle, three runs per point.
+
+16
+00:01:52,163 --> 00:02:01,515
+Continuous batching delivers 3.7 times the throughput of static batching, and the paged KV cache fits 17 times more sequences in the same memory.
+
+17
+00:02:02,665 --> 00:02:09,129
+With the same number of users on each server, it reaches 52 to 59 percent of vLLM's throughput.
+
+18
+00:02:10,279 --> 00:02:22,505
+The profiler shows where the rest goes: at batch 32, the GPU sits idle 85 of 96 milliseconds per step, waiting for Python to launch about 1,250 small kernels.
+
+19
+00:02:22,855 --> 00:02:29,982
+CUDA graphs replay the whole step with one launch, cutting batch-one decode from 27 to 10 milliseconds per token.
+
+20
+00:02:31,132 --> 00:02:41,914
+But graphs only help while launches dominate; at 128 users they were slower. The final design uses them up to batch 32, and wins at every load.
+
+21
+00:02:43,064 --> 00:02:53,360
+Every design choice was settled by a measurement: decode-first or prefill-first, chunked prefill, prefix caching, recompute or swap.
+
+22
+00:02:54,510 --> 00:03:04,048
+And every speed-up had to keep the golden test passing: fifty prompts, sixty-four tokens each, identical to HuggingFace in fp32.
+
+23
+00:03:04,398 --> 00:03:11,466
+A thirty-minute soak test completed all 5,580 requests, with no memory drift.
+
+24
+00:03:12,616 --> 00:03:16,251
+Half the bugs I found were in the measuring, not the server.
+
+25
+00:03:17,401 --> 00:03:21,972
+The code, the tests, and every raw result are in the repository.
+

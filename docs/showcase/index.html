@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>infer inference server</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Lab notebook for one GPU: cool paper, ink, and the chart palette's blue for "ours".
+     Layout: a 1120px column, left-aligned; sections stack, charts span the column. */
+  --paper: #f6f6f3;
+  --surface: #fcfcfb;
+  --ink: #111214;
+  --ink-2: #4b4e55;
+  --muted: #7d7f85;
+  --rule: #e1e0d9;
+  --axis: #c3c2b7;
+  --accent: #2a78d6;
+  --good: #006300;
+  --s-d: #2a78d6;   /* D: ours, eager      */
+  --s-e: #008300;   /* E: ours, CUDA graphs */
+  --s-f: #e87ba4;   /* F: vLLM             */
+  --s-2: #eb6834;
+  --p1: #2a78d6; --p2: #eb6834; --p3: #1baf7a; --p4: #eda100;
+  --p5: #e87ba4; --p6: #008300; --p7: #6250d6; --p8: #e34948;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e0f10; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8d87;
+    --rule: #2c2c2a; --axis: #45453f; --accent: #3987e5; --good: #0ca30c;
+    --s-d: #3987e5; --s-e: #008300; --s-f: #d55181; --s-2: #d95926;
+    --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500;
+    --p5: #d55181; --p6: #008300; --p7: #9085e9; --p8: #e66767;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e0f10; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #8f8d87;
+  --rule: #2c2c2a; --axis: #45453f; --accent: #3987e5; --good: #0ca30c;
+  --s-d: #3987e5; --s-e: #008300; --s-f: #d55181; --s-2: #d95926;
+  --p1: #3987e5; --p2: #d95926; --p3: #199e70; --p4: #c98500;
+  --p5: #d55181; --p6: #008300; --p7: #9085e9; --p8: #e66767;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 18px; line-height: 1.55;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+@media (max-width: 480px) { .wrap { padding: 0 16px; } body { font-size: 17px; } }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h2 { font-size: clamp(28px, 3.6vw, 40px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+h3 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+p { margin: 0; max-width: 65ch; }
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* hero */
+header.hero { padding: 56px 0 40px; border-bottom: 1px solid var(--rule); }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 40px; align-items: start; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+.eyebrow { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); letter-spacing: 0.02em; }
+.hero h1 { font-size: clamp(64px, 11vw, 132px); font-weight: 800; letter-spacing: -0.055em; line-height: 0.9; margin: 14px 0 18px; }
+.hero h1 .cursor { display: inline-block; width: 0.42em; height: 0.08em; background: var(--accent); margin-left: 0.06em; vertical-align: baseline;
+  animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .hero h1 .cursor { animation: none; } }
+.thesis { font-size: 21px; line-height: 1.45; color: var(--ink); }
+.thesis + p { margin-top: 14px; color: var(--ink-2); }
+.terminal { background: #0b0d10; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 18px 40px -24px rgba(0,0,0,0.55); }
+.terminal .bar { display: flex; gap: 6px; padding: 9px 12px; background: #15181d; align-items: center; }
+.terminal .bar i { width: 10px; height: 10px; border-radius: 50%; background: #3a3f47; display: block; }
+.terminal .bar span { margin-left: 8px; font-family: var(--font-mono); font-size: 12px; color: #8b929c; }
+.terminal img { display: block; width: 100%; height: auto; }
+.terminal-cap { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); margin-top: 10px; }
+
+.scoreboard { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 36px; border-top: 2px solid var(--ink); }
+@media (max-width: 900px) { .scoreboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .scoreboard { grid-template-columns: 1fr; } }
+.score { padding: 16px 18px 18px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 4px; align-content: start; }
+.score .big { font-family: var(--font-display); font-weight: 800; font-size: clamp(40px, 5vw, 56px); letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.score .what { font-family: var(--font-display); font-weight: 600; font-size: 16px; line-height: 1.25; }
+.score .how { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); line-height: 1.4; }
+
+/* sections */
+section { padding: 56px 0; border-bottom: 1px solid var(--rule); }
+.sec-head { display: grid; gap: 12px; margin-bottom: 26px; }
+.sec-head .eyebrow { color: var(--accent); }
+.lede { color: var(--ink-2); }
+.two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 36px; align-items: start; }
+@media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+.prose { display: grid; gap: 14px; }
+
+/* charts */
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 16px 10px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg button { font: 500 13px var(--font-mono); color: var(--ink-2); background: transparent; border: 0; padding: 7px 11px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.seg button:hover:not([aria-pressed="true"]) { background: var(--rule); color: var(--ink); }
+.ctl-label { font: 500 12px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--font-mono); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px var(--font-mono); color: var(--ink-2); margin: 4px 0 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend svg { width: 26px; height: 12px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--rule);
+  border-radius: 6px; padding: 8px 10px; font: 12.5px/1.45 var(--font-mono); box-shadow: 0 8px 24px -12px rgba(0,0,0,0.35);
+  white-space: nowrap; z-index: 2; opacity: 0; transition: opacity 80ms; }
+.tip b { font-weight: 600; }
+.tip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.caption { font-size: 15px; color: var(--ink-2); margin-top: 10px; max-width: 75ch; }
+details.numbers { margin-top: 12px; font-size: 15px; }
+details.numbers summary { cursor: pointer; font: 500 13px var(--font-mono); color: var(--accent); }
+.tablewrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; font: 13px var(--font-mono); font-variant-numeric: tabular-nums; min-width: 560px; width: 100%; }
+th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--rule); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; }
+tr.ours td:first-child { color: var(--ink); font-weight: 600; }
+
+/* callouts and cards */
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; display: grid; gap: 10px; align-content: start; }
+.card .q { font: 500 12px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.card .verdict { font-family: var(--font-display); font-weight: 700; font-size: 19px; line-height: 1.25; }
+.ab { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px 14px; font: 13px var(--font-mono); font-variant-numeric: tabular-nums; align-items: baseline; }
+.ab .h { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+.ab .better { color: var(--good); font-weight: 600; }
+.card .note { font-size: 15px; color: var(--ink-2); }
+
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); }
+@media (max-width: 760px) { .facts { grid-template-columns: 1fr; } }
+.fact { padding: 16px 18px 18px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 6px; }
+.fact .k { font-family: var(--font-display); font-weight: 700; font-size: 26px; letter-spacing: -0.02em; }
+.fact p { font-size: 15.5px; color: var(--ink-2); }
+
+.stories { display: grid; gap: 0; border-top: 2px solid var(--ink); }
+.story { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+@media (max-width: 760px) { .story { grid-template-columns: 1fr; gap: 6px; } }
+.story h3 { font-size: 18px; }
+.story .tag { font: 500 12px var(--font-mono); color: var(--muted); display: block; margin-top: 4px; }
+.story p { font-size: 16.5px; }
+
+figure { margin: 0; }
+figure svg.diagram { width: 100%; height: auto; color: var(--ink); }
+figcaption { font-size: 15px; color: var(--ink-2); margin-top: 10px; max-width: 75ch; }
+
+.watch video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; }
+.watch .missing { display: none; font: 14px var(--font-mono); color: var(--ink-2); padding: 14px 0 0; }
+.watch.no-video video { display: none; }
+.watch.no-video .missing { display: block; }
+footer { padding: 36px 0 56px; color: var(--ink-2); font-size: 15px; }
+footer p { max-width: 80ch; }
+footer p + p { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">Qwen2.5-0.5B-Instruct · one Kaggle T4 · PyTorch, no inference library</div>
+        <h1>infer<span class="cursor" aria-hidden="true"></span></h1>
+        <p class="thesis">An LLM inference server written from scratch: its own model forward pass, continuous batching, a paged KV cache with preemption, CUDA graphs and an OpenAI-compatible streaming API, measured against vLLM on the same GPU.</p>
+        <p>Every number on this page comes from about 17 GPU hours of benchmarks, three runs per point, in <code>bench/results</code>.</p>
+      </div>
+      <div>
+        <div class="terminal">
+          <div class="bar"><i></i><i></i><i></i><span>python -m bench.demo --streams 50</span></div>
+          <img src="demo.gif" width="704" height="518" alt="Terminal recording: 50 chat requests stream at once, with 49 running in one batch and the KV cache under 1 percent full; all finish in about 7 seconds.">
+        </div>
+        <p class="terminal-cap">Recorded on the T4: 50 requests stream at once, 49 share each forward pass, all done in 7&nbsp;s.</p>
+      </div>
+    </div>
+    <div class="scoreboard" id="scoreboard"></div>
+  </div>
+</header>
+
+<main>
+<section id="watch" class="watch">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Watch</div>
+      <h2>Three minutes, end to end, narrated</h2>
+      <p class="lede">The real server on a laptop CPU (curl over SSE, the OpenAI SDK, metrics, eight concurrent streams), the T4 recording, and what the benchmarks showed. Replays faster than real time are labelled on screen; subtitles are burned in.</p>
+    </div>
+    <video id="walkthrough" controls preload="metadata" playsinline width="1280" height="720" src="infer_demo.mp4"></video>
+    <p class="missing">The video did not load here. It is <code>docs/showcase/infer_demo.mp4</code> in the repository.</p>
+  </div>
+</section>
+
+<section id="vs-vllm">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Against vLLM</div>
+      <h2>More than half of vLLM's throughput, with every line of the engine written by hand</h2>
+      <p class="lede" id="vllm-lede"></p>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <span class="ctl-label">Workload</span>
+        <div class="seg" id="ctl-workload"><button aria-pressed="true" data-v="fixed">512 in / 128 out</button><button aria-pressed="false" data-v="sharegpt">ShareGPT</button></div>
+        <span class="ctl-label">Load</span>
+        <div class="seg" id="ctl-load"><button aria-pressed="true" data-v="concurrency">users in flight</button><button aria-pressed="false" data-v="rate">requests / s</button></div>
+        <span class="ctl-label">Metric</span>
+        <div class="seg" id="ctl-metric"><button aria-pressed="true" data-v="tok_s">tokens / s</button><button aria-pressed="false" data-v="tpot_p50">p50 TPOT</button><button aria-pressed="false" data-v="ttft_p99">p99 TTFT</button></div>
+      </div>
+      <div class="legend" id="vllm-legend"></div>
+      <div class="chart" id="vllm-chart"></div>
+      <p class="caption" id="vllm-caption"></p>
+      <details class="numbers"><summary>Show the numbers</summary><div class="tablewrap" id="vllm-table"></div></details>
+    </div>
+  </div>
+</section>
+
+<section id="batching">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Why continuous batching</div>
+      <h2>Decode is memory-bound, so a bigger batch is almost free</h2>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <div class="chart" id="peak-chart"></div>
+        <p class="caption">Output tokens per second with 300 requests of 512 in / 128 out arriving at once. Naive HuggingFace serves one request at a time; static batching waits for its slowest row.</p>
+      </div>
+      <div class="prose" id="batching-prose"></div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">How a request flows</div>
+      <h2>Two threads: the event loop talks HTTP, the engine owns the GPU</h2>
+    </div>
+    <figure>
+      <svg class="diagram" viewBox="0 0 1060 300" role="img" aria-label="A request enters the FastAPI routes on the event loop, crosses to the engine thread through an inbox, is scheduled into one forward pass per step that reads and writes the paged KV pool, and each new token returns to the event loop and streams to the client over SSE.">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        </defs>
+        <g fill="none" stroke="currentColor" stroke-width="1.2">
+          <rect x="10" y="20" width="430" height="260" rx="10" stroke-dasharray="4 4" opacity="0.55"/>
+          <rect x="480" y="20" width="570" height="260" rx="10" stroke-dasharray="4 4" opacity="0.55"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="12" fill="currentColor">
+          <text x="26" y="44" opacity="0.7">API side · asyncio event loop</text>
+          <text x="496" y="44" opacity="0.7">engine thread · owns the GPU</text>
+        </g>
+        <g fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="30" y="70" width="120" height="64" rx="6"/>
+          <rect x="200" y="70" width="220" height="64" rx="6"/>
+          <rect x="200" y="196" width="220" height="64" rx="6"/>
+          <rect x="500" y="70" width="150" height="64" rx="6"/>
+          <rect x="690" y="70" width="160" height="64" rx="6"/>
+          <rect x="880" y="70" width="150" height="64" rx="6" stroke="var(--accent)" stroke-width="2"/>
+          <rect x="690" y="196" width="340" height="64" rx="6"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" fill="currentColor" text-anchor="middle">
+          <text x="90" y="98" font-weight="600">Client</text><text x="90" y="117" font-size="11.5" opacity="0.75">OpenAI SDK, curl</text>
+          <text x="310" y="98" font-weight="600">FastAPI routes</text><text x="310" y="117" font-size="11.5" opacity="0.75">validate, template, 503</text>
+          <text x="310" y="224" font-weight="600">SSE stream</text><text x="310" y="243" font-size="11.5" opacity="0.75">detokenize, stop strings</text>
+          <text x="575" y="98" font-weight="600">Inbox</text><text x="575" y="117" font-size="11.5" opacity="0.75">adds and aborts</text>
+          <text x="770" y="98" font-weight="600">Scheduler</text><text x="770" y="117" font-size="11.5" opacity="0.75">admit, grow, preempt</text>
+          <text x="955" y="98" font-weight="600" fill="var(--accent)">Paged KV pool</text><text x="955" y="117" font-size="11.5" opacity="0.75">16-token blocks</text>
+          <text x="860" y="224" font-weight="600">Model runner: one forward pass</text><text x="860" y="243" font-size="11.5" opacity="0.75">prefills + decodes, graph replay</text>
+        </g>
+        <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#arr)">
+          <path d="M150 102 H196"/>
+          <path d="M420 102 H496"/>
+          <path d="M650 102 H686"/>
+          <path d="M770 134 V192"/>
+          <path d="M955 192 V138"/>
+          <path d="M690 228 H424"/>
+          <path d="M200 228 H90 V138"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor" opacity="0.8">
+          <text x="460" y="94" text-anchor="middle">add</text>
+          <text x="778" y="156">batch for this step</text>
+          <text x="947" y="182" text-anchor="end">reads, writes K/V</text>
+          <text x="556" y="220" text-anchor="middle">token, call_soon_threadsafe</text>
+          <text x="98" y="168">chunks</text>
+        </g>
+      </svg>
+      <figcaption>A request crosses to the engine thread through the inbox; every step the scheduler picks who prefills, who decodes and who is preempted, and one forward pass serves them all. Each new token crosses back to that request's queue and streams out. A client that disconnects sends an abort down the same inbox, and its blocks are freed at the next step.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="kv">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Paged KV cache</div>
+      <h2>Blocks instead of slots: 17 times the sequences in the same memory</h2>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <div class="legend" id="kv-legend"></div>
+        <div class="chart" id="kv-chart"></div>
+        <p class="caption">Most sequences admitted at once, 400 ShareGPT requests, by KV memory. Contiguous slots reserve 2,048 tokens each.</p>
+      </div>
+      <div class="prose" id="kv-prose"></div>
+    </div>
+  </div>
+</section>
+
+<section id="profile">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Where a decode step goes</div>
+      <h2>The GPU waits on Python far more than on math</h2>
+    </div>
+    <div class="panel">
+      <div class="legend" id="prof-legend"></div>
+      <div class="chart" id="prof-chart"></div>
+      <p class="caption" id="prof-caption"></p>
+    </div>
+  </div>
+</section>
+
+<section id="graphs">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">CUDA graphs, three versions</div>
+      <h2>Graphs win where launches dominate and lose where memory does</h2>
+    </div>
+    <div class="two">
+      <div class="panel">
+        <div class="controls">
+          <span class="ctl-label">Workload</span>
+          <div class="seg" id="ctl-gworkload"><button aria-pressed="true" data-v="fixed">512 in / 128 out</button><button aria-pressed="false" data-v="sharegpt">ShareGPT</button></div>
+        </div>
+        <div class="legend" id="graph-legend"></div>
+        <div class="chart" id="graph-chart"></div>
+        <p class="caption">Output tokens per second by users in flight. The final version captures graphs only for batches up to 32 and decodes bigger batches eagerly.</p>
+      </div>
+      <div class="prose" id="graph-prose"></div>
+    </div>
+  </div>
+</section>
+
+<section id="tradeoffs">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Tradeoffs, measured</div>
+      <h2>Each design choice was settled by a run, not a guess</h2>
+    </div>
+    <div class="cards" id="cards"></div>
+  </div>
+</section>
+
+<section id="correctness">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Correctness</div>
+      <h2>Every speed-up had to keep the golden test passing</h2>
+    </div>
+    <div class="facts" id="facts"></div>
+  </div>
+</section>
+
+<section id="stories">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Bugs worth telling</div>
+      <h2>Half of them were in the measuring, not the server</h2>
+    </div>
+    <div class="stories">
+      <div class="story"><div><h3>The tie that HF breaks both ways</h3><span class="tag">fp32 golden test</span></div>
+        <p>One golden prompt diverged at token 11 in every engine configuration. The top two logits there differ by 9.5e-6, and HuggingFace disagrees with itself: its incremental <code>generate()</code> picks one token, its own full forward pass the other. The test now records each position's top-2 gap and allows a divergence only at a recorded tie.</p></div>
+      <div class="story"><div><h3>fp16 that was fp32</h3><span class="tag">found by a 30-minute GPU probe</span></div>
+        <p>The loader built the model on the meta device in fp32 and copied the fp16 weights into fp32 parameters, so <code>--dtype float16</code> silently ran in fp32. Only the GPU showed it, as a dtype crash in static batching; a CPU test that loads in half precision guards it now.</p></div>
+      <div class="story"><div><h3>3 tok/s that was 37</h3><span class="tag">load generator</span></div>
+        <p>When a one-user run hit its 15-minute cap, requests still queued had a send time of 0, which stretched the measured duration back to the clock's origin and marked the run saturated, skipping the higher-concurrency points. Found because the number disagreed with the server's own metrics.</p></div>
+      <div class="story"><div><h3>A soak test that cancelled itself</h3><span class="tag">30 minutes at 4 req/s</span></div>
+        <p>602 of 6,600 requests "failed", about 20 a minute, while GPU memory and free blocks were identical at every idle point. Each round sent 55 seconds of arrivals and cut itself off at 55 seconds. Fixed, the rerun completed every request.</p></div>
+      <div class="story"><div><h3>Graph numbers that were eager numbers</h3><span class="tag">CUDA graphs, part 4</span></div>
+        <p>128 finer-bucket graphs ran out of memory next to a KV pool sized at 90% of the GPU. The engine fell back to eager decoding as designed, and the "graph" runs matched eager within 1%, which is how it showed. Graph memory is now set aside before the pool is sized.</p></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Method: Poisson arrivals at 1 to 32 requests per second plus all at once, and closed-loop runs with 1, 8, 32 and 128 users in flight; 20 warm-up requests discarded; three runs per point; output lengths forced with <code>ignore_eos</code> so every server generates the same tokens. TTFT is time to first token, TPOT is time per output token after the first.</p>
+    <p>Generated from <code>bench/results</code> by <code>python -m bench.showcase</code>. Source: the <code>infer</code> repository, <code>src/infer</code>.</p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(() => {
+  "use strict";
+  const D = window.SHOWCASE;
+  if (!D) { document.body.insertAdjacentHTML("afterbegin", "<p style='padding:16px'>data.js did not load: run python -m bench.showcase.</p>"); return; }
+  const $ = (id) => document.getElementById(id);
+  const vid = document.getElementById("walkthrough");
+  if (vid) vid.addEventListener("error", () => vid.closest(".watch").classList.add("no-video"));
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const fmt = (v, d = 0) => v == null ? "–" : Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const NAMES = { A: "A naive HF", B: "B static batching", C: "C continuous, contiguous", D: "D ours, eager",
+                  E: "E ours + CUDA graphs", F: "F vLLM", "E-pow2": "graphs at every batch, power-of-two buckets",
+                  "E-ctx128": "graphs at every batch, 128-token buckets" };
+  const rows = D.rows;
+  const row = (system, workload, type, load) => rows.find(r => r.system === system && r.workload === workload && r.type === type && String(r.load) === String(load));
+  const series = (system, workload, type) => rows.filter(r => r.system === system && r.workload === workload && r.type === type)
+    .sort((a, b) => (a.load === "all" ? 1e9 : a.load) - (b.load === "all" ? 1e9 : b.load));
+  const H = D.headline;
+  const pct = (a, b) => Math.round(100 * a / b);
+
+  /* ---------- scoreboard ---------- */
+  const B = row("B", "fixed", "rate", "all"), Dd = row("D", "fixed", "rate", "all");
+  const kvAt = (t, mb) => D.kv_concurrency.find(c => c.cache_type === t && c.kv_cache_mb === mb);
+  const kvP = kvAt("paged", 256), kvC = kvAt("contiguous", 256);
+  const vllmPcts = [8, 32, 128].flatMap(n => ["fixed", "sharegpt"].map(w => pct(row("E", w, "concurrency", n).tok_s, row("F", w, "concurrency", n).tok_s)));
+  const score = [
+    { big: (Dd.tok_s / B.tok_s).toFixed(1) + "×", what: "the throughput of static batching",
+      how: `${fmt(Dd.tok_s)} vs ${fmt(B.tok_s)} tok/s, 300 requests at once` },
+    { big: Math.round(kvP.peak_running / kvC.peak_running) + "×", what: "more sequences in the same KV memory",
+      how: `${kvP.peak_running} vs ${kvC.peak_running} at 256 MiB, paged vs contiguous` },
+    { big: `${Math.min(...vllmPcts)}–${Math.max(...vllmPcts)}%`, what: "of vLLM's throughput, 8 to 128 users",
+      how: "same model, same T4, same requests" },
+    { big: fmt(D.soak.totals.completed), what: "soak requests, none failed",
+      how: `30 min at 4 req/s, GPU memory identical at all ${D.soak.rounds} idle checks` },
+  ];
+  $("scoreboard").innerHTML = score.map(s => `<div class="score"><div class="big">${s.big}</div><div class="what">${s.what}</div><div class="how">${s.how}</div></div>`).join("");
+
+  /* ---------- generic SVG line chart with crosshair + tooltip ---------- */
+  const NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function niceTicks(lo, hi, n = 5) {
+    const span = hi - lo || 1, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= n) || 10 * mag;
+    const out = []; for (let v = Math.ceil(lo / step) * step; v < hi + step - 1e-9; v += step) out.push(+v.toFixed(10)); return out;
+  }
+  function marker(g, shape, x, y, color, r = 4.5) {
+    const ring = { stroke: css("--surface"), "stroke-width": 2 };
+    if (shape === "square") return el("rect", { x: x - r, y: y - r, width: 2 * r, height: 2 * r, fill: color, ...ring }, g);
+    if (shape === "triangle") return el("path", { d: `M${x},${y - r - 1} L${x + r + 1},${y + r} L${x - r - 1},${y + r} Z`, fill: color, ...ring }, g);
+    return el("circle", { cx: x, cy: y, r, fill: color, ...ring }, g);
+  }
+  function legend(host, items) {
+    host.innerHTML = items.map(s => `<span><svg viewBox="0 0 26 12" aria-hidden="true"><line x1="1" y1="6" x2="25" y2="6" stroke="${s.color}" stroke-width="2.5" stroke-dasharray="${s.dash || ""}"/></svg>${s.label}</span>`).join("");
+  }
+  function lineChart(host, opt) {
+    host.innerHTML = "";
+    const W = Math.max(320, host.clientWidth), Hh = opt.height || 320, m = { l: 62, r: 120, t: 30, b: 44 };
+    if (W < 520) m.r = 16;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: "img", "aria-label": opt.aria }, host);
+    const xs = [...new Set(opt.series.flatMap(s => s.points.map(p => p.xk)))].sort((a, b) => a - b);
+    const xpos = (xk) => m.l + (xs.length === 1 ? 0 : (Math.log2(xk) - Math.log2(xs[0])) / (Math.log2(xs[xs.length - 1]) - Math.log2(xs[0])) * (W - m.l - m.r));
+    const ys = opt.series.flatMap(s => s.points.map(p => p.y)).filter(v => v != null && v > 0);
+    let y0, y1, ypos, ticks;
+    if (opt.ylog) {
+      y0 = Math.pow(10, Math.floor(Math.log10(Math.min(...ys)))); y1 = Math.pow(10, Math.ceil(Math.log10(Math.max(...ys))));
+      ypos = v => Hh - m.b - (Math.log10(v) - Math.log10(y0)) / (Math.log10(y1) - Math.log10(y0)) * (Hh - m.t - m.b);
+      ticks = []; for (let v = y0; v <= y1 * 1.0001; v *= 10) ticks.push(v);
+    } else {
+      y0 = 0; ticks = niceTicks(0, Math.max(...ys) * 1.08); y1 = ticks[ticks.length - 1];
+      ypos = v => Hh - m.b - (v - y0) / (y1 - y0) * (Hh - m.t - m.b);
+    }
+    const grid = el("g", {}, svg);
+    ticks.forEach(t => {
+      el("line", { x1: m.l, x2: W - m.r, y1: ypos(t), y2: ypos(t), stroke: css("--rule"), "stroke-width": 1 }, grid);
+      el("text", { x: m.l - 8, y: ypos(t) + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--muted") }, grid).textContent = opt.yfmt(t);
+    });
+    el("line", { x1: m.l, x2: W - m.r, y1: Hh - m.b, y2: Hh - m.b, stroke: css("--axis") }, grid);
+    xs.forEach(xk => { el("text", { x: xpos(xk), y: Hh - m.b + 18, "text-anchor": "middle", "font-size": 11.5, fill: css("--muted") }, grid).textContent = opt.xlabel(xk); });
+    el("text", { x: m.l + (W - m.l - m.r) / 2, y: Hh - 6, "text-anchor": "middle", "font-size": 12, fill: css("--ink-2") }, grid).textContent = opt.xtitle;
+    el("text", { x: 0, y: 12, "font-size": 12, fill: css("--ink-2") }, grid).textContent = opt.ytitle;
+    const lines = el("g", {}, svg);
+    opt.series.forEach(s => {
+      const pts = s.points.filter(p => p.y != null && p.y > 0);
+      if (!pts.length) return;
+      el("polyline", { points: pts.map(p => `${xpos(p.xk)},${ypos(p.y)}`).join(" "), fill: "none", stroke: s.color, "stroke-width": 2.5,
+        "stroke-dasharray": s.dash || "", "stroke-linejoin": "round", "stroke-linecap": "round" }, lines);
+      pts.forEach(p => marker(lines, s.marker, xpos(p.xk), ypos(p.y), s.color));
+      if (m.r > 40) {
+        const last = pts[pts.length - 1];
+        s._end = { x: xpos(last.xk) + 10, y: ypos(last.y) + 4 };
+      }
+    });
+    // direct labels at line ends, nudged apart
+    const ends = opt.series.filter(s => s._end).sort((a, b) => a._end.y - b._end.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i]._end.y - ends[i - 1]._end.y < 15) ends[i]._end.y = ends[i - 1]._end.y + 15;
+    ends.forEach(s => { el("text", { x: s._end.x, y: s._end.y, "font-size": 12, fill: css("--ink"), "font-weight": 500 }, lines).textContent = s.short; delete s._end; });
+    // hover layer
+    const hair = el("line", { y1: m.t, y2: Hh - m.b, stroke: css("--ink-2"), "stroke-width": 1, "stroke-dasharray": "3 3", opacity: 0 }, svg);
+    const tip = document.createElement("div"); tip.className = "tip"; host.appendChild(tip);
+    const hit = el("rect", { x: m.l - 20, y: 0, width: W - m.l - m.r + 40, height: Hh - m.b + 10, fill: "transparent" }, svg);
+    const show = (cx) => {
+      let best = xs[0], bd = 1e9; xs.forEach(xk => { const d = Math.abs(xpos(xk) - cx); if (d < bd) { bd = d; best = xk; } });
+      const x = xpos(best); hair.setAttribute("x1", x); hair.setAttribute("x2", x); hair.setAttribute("opacity", 0.7);
+      const lines2 = opt.series.map(s => { const p = s.points.find(q => q.xk === best); return `<div><span class="sw" style="background:${s.color}"></span>${s.short} <b>${p && p.y != null ? opt.vfmt(p.y) : "not run"}</b></div>`; });
+      tip.innerHTML = `<div style="color:${css("--muted")}">${opt.xlabelLong(best)}</div>` + lines2.join("");
+      tip.style.opacity = 1;
+      const tw = tip.offsetWidth; let left = x / W * host.clientWidth + 14; if (left + tw > host.clientWidth) left = x / W * host.clientWidth - tw - 14;
+      tip.style.left = Math.max(0, left) + "px"; tip.style.top = "8px";
+    };
+    const hide = () => { hair.setAttribute("opacity", 0); tip.style.opacity = 0; };
+    hit.addEventListener("pointermove", e => { const r = svg.getBoundingClientRect(); show((e.clientX - r.left) / r.width * W); });
+    hit.addEventListener("pointerleave", hide);
+    svg.setAttribute("tabindex", "0");
+    let kIdx = -1;
+    svg.addEventListener("keydown", e => { if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return; kIdx = Math.max(0, Math.min(xs.length - 1, kIdx + (e.key === "ArrowRight" ? 1 : -1))); show(xpos(xs[kIdx])); e.preventDefault(); });
+    svg.addEventListener("blur", hide);
+  }
+
+  /* ---------- section: vs vLLM ---------- */
+  const state = { workload: "fixed", load: "concurrency", metric: "tok_s", gworkload: "fixed" };
+  const METRIC = {
+    tok_s: { title: "output tokens / s", fmt: v => fmt(v), log: false, get: r => r.tok_s },
+    tpot_p50: { title: "ms per output token, p50", fmt: v => fmt(v, 1) + " ms", log: false, get: r => r.tpot_p50 * 1e3 },
+    ttft_p99: { title: "time to first token, p99 (ms)", fmt: v => v >= 1000 ? fmt(v / 1000, 1) + " s" : fmt(v) + " ms", log: true, get: r => r.ttft_p99 * 1e3 },
+  };
+  const SYS = () => [
+    { key: "D", label: NAMES.D, short: "D eager", color: css("--s-d"), marker: "circle" },
+    { key: "E", label: NAMES.E, short: "E graphs", color: css("--s-e"), marker: "square" },
+    { key: "F", label: NAMES.F, short: "F vLLM", color: css("--s-f"), marker: "triangle" },
+  ];
+  const xkOf = (r, all) => r.load === "all" ? all : r.load;
+  function drawVllm() {
+    const mt = METRIC[state.metric], sys = SYS();
+    const ALL = 64;
+    const ser = sys.map(s => ({ ...s, points: series(s.key, state.workload, state.load).map(r => ({ xk: xkOf(r, ALL), y: mt.get(r) })) }));
+    legend($("vllm-legend"), ser);
+    const conc = state.load === "concurrency";
+    lineChart($("vllm-chart"), {
+      series: ser, ylog: mt.log, yfmt: v => mt.log ? (v >= 1000 ? (v / 1000) + " s" : v + " ms") : fmt(v), vfmt: mt.fmt,
+      xlabel: xk => conc ? String(xk) : (xk === ALL ? "all" : String(xk)), xlabelLong: xk => conc ? `${xk} user${xk === 1 ? "" : "s"} in flight` : (xk === ALL ? "300 requests at once" : `${xk} requests / s`),
+      xtitle: conc ? "users in flight (each sends again when its request finishes)" : "requests per second (Poisson), then all at once", ytitle: mt.title,
+      aria: `${mt.title} for D, E and vLLM by ${conc ? "users in flight" : "request rate"}, ${state.workload} workload.`,
+    });
+    const n = state.workload === "fixed" ? "fixed" : "sharegpt";
+    const e128 = row("E", n, "concurrency", 128), f128 = row("F", n, "concurrency", 128), e8 = row("E", n, "concurrency", 8), f8 = row("F", n, "concurrency", 8);
+    $("vllm-caption").textContent = conc
+      ? `E reaches ${pct(e8.tok_s, f8.tok_s)}% of vLLM's throughput at 8 users and ${pct(e128.tok_s, f128.tok_s)}% at 128. E was not rerun at one user; at that point the chart shows D and vLLM only.`
+      : "Below saturation every server delivers the offered load, so the curves overlap; they separate where each one saturates. TTFT climbs steeply past that point as requests queue.";
+    // table
+    const loads = [...new Set(ser.flatMap(s => s.points.map(p => p.xk)))].sort((a, b) => a - b);
+    $("vllm-table").innerHTML = `<table><thead><tr><th>System</th>${loads.map(l => `<th>${conc ? l + " users" : (l === ALL ? "all" : l + "/s")}</th>`).join("")}</tr></thead><tbody>` +
+      ser.map(s => `<tr class="${s.key !== "F" ? "ours" : ""}"><td>${s.label}</td>${loads.map(l => { const p = s.points.find(q => q.xk === l); return `<td>${p ? mt.fmt(p.y) : "–"}</td>`; }).join("")}</tr>`).join("") + "</tbody></table>";
+  }
+  const lede = () => {
+    const d1 = row("D", "fixed", "concurrency", 1), f1 = row("F", "fixed", "concurrency", 1);
+    $("vllm-lede").textContent = `With the same number of users waiting on each server, vLLM stays ahead: its fused kernels and lean step loop spend ${fmt(f1.tpot_p50 * 1e3, 1)} ms per token for one user, where the eager engine spends ${fmt(d1.tpot_p50 * 1e3, 1)} ms. Switch the workload, the kind of load and the metric to compare.`;
+  };
+
+  /* ---------- section: batching ---------- */
+  function drawPeak() {
+    const host = $("peak-chart"); host.innerHTML = "";
+    const order = ["A", "B", "C", "D", "E", "F"];
+    const data = order.map(k => ({ k, v: row(k, "fixed", "rate", "all").tok_s }));
+    const W = Math.max(300, host.clientWidth), rowH = 34, m = { l: W < 480 ? 150 : 200, r: 64, t: 6, b: 8 }, Hh = m.t + m.b + rowH * data.length;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: "img", "aria-label": "Peak output throughput by system, fixed workload." }, host);
+    const max = Math.max(...data.map(d => d.v)), x = v => m.l + v / max * (W - m.l - m.r);
+    data.forEach((d, i) => {
+      const y = m.t + i * rowH, ours = "CDE".includes(d.k), fill = d.k === "F" ? css("--s-f") : ours ? css("--accent") : css("--muted");
+      el("text", { x: m.l - 10, y: y + rowH / 2 + 4, "text-anchor": "end", "font-size": 12.5, fill: css("--ink") }, svg).textContent = NAMES[d.k];
+      el("rect", { x: m.l, y: y + 7, width: Math.max(2, x(d.v) - m.l), height: rowH - 14, rx: 4, fill, opacity: ours || d.k === "F" ? 1 : 0.55 }, svg);
+      el("text", { x: x(d.v) + 8, y: y + rowH / 2 + 4, "font-size": 12.5, fill: css("--ink"), "font-weight": 600 }, svg).textContent = fmt(d.v);
+    });
+    const s = D.static_mixed, Bm = row("B", "mixed", "rate", "all"), Dm = row("D", "mixed", "rate", "all");
+    const curve = D.static_curve;
+    $("batching-prose").innerHTML = `
+      <p>Every decode step reads all of the model's weights, about 1 GB, whatever the batch. Static batching already shows it: ${fmt(curve[0].throughput_tok_s)} tok/s at batch 1, ${fmt(curve.find(c => c.batch_size === 16).throughput_tok_s)} at batch 16.</p>
+      <p>But a static batch runs until its longest request ends. On a mixed workload, half the requests asking for 32 tokens and half for 512, <b>${Math.round(100 * s.waste)}%</b> of its slot-steps went to requests that had already finished.</p>
+      <p>Continuous batching re-plans every step: finished requests leave and waiting ones join. Served over HTTP it delivered <b>${(Dd.tok_s / B.tok_s).toFixed(1)}×</b> static batching's throughput on equal-length requests and <b>${(Dm.tok_s / Bm.tok_s).toFixed(1)}×</b> on the mixed ones (${fmt(Dm.tok_s)} vs ${fmt(Bm.tok_s)} tok/s).</p>`;
+  }
+
+  /* ---------- section: KV ---------- */
+  function drawKV() {
+    const host = $("kv-chart"); host.innerHTML = "";
+    const budgets = [...new Set(D.kv_concurrency.map(c => c.kv_cache_mb))].sort((a, b) => a - b);
+    const W = Math.max(300, host.clientWidth), Hh = 280, m = { l: 52, r: 12, t: 22, b: 40 };
+    const svg = el("svg", { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: "img", "aria-label": "Most concurrent sequences by KV budget, paged versus contiguous." }, host);
+    const max = Math.max(...D.kv_concurrency.map(c => c.peak_running)), ticks = niceTicks(0, max * 1.1), top = ticks[ticks.length - 1];
+    const y = v => Hh - m.b - v / top * (Hh - m.t - m.b);
+    ticks.forEach(t => { el("line", { x1: m.l, x2: W - m.r, y1: y(t), y2: y(t), stroke: css("--rule") }, svg); el("text", { x: m.l - 8, y: y(t) + 4, "text-anchor": "end", "font-size": 11.5, fill: css("--muted") }, svg).textContent = t; });
+    const gw = (W - m.l - m.r) / budgets.length, bw = Math.min(34, gw / 3);
+    const cols = { paged: css("--p1"), contiguous: css("--p2") };
+    legend($("kv-legend"), [{ label: "paged, 16-token blocks", color: cols.paged }, { label: "contiguous, 2,048-token slots", color: cols.contiguous }]);
+    budgets.forEach((b, i) => {
+      const cx = m.l + gw * (i + 0.5);
+      ["paged", "contiguous"].forEach((t, j) => {
+        const c = D.kv_concurrency.find(q => q.kv_cache_mb === b && q.cache_type === t), x = cx + (j === 0 ? -bw - 1 : 1);
+        el("rect", { x, y: y(c.peak_running), width: bw, height: Hh - m.b - y(c.peak_running), rx: 3, fill: cols[t] }, svg);
+        el("text", { x: x + bw / 2, y: y(c.peak_running) - 5, "text-anchor": "middle", "font-size": 11.5, fill: css("--ink") }, svg).textContent = c.peak_running;
+      });
+      el("text", { x: cx, y: Hh - m.b + 18, "text-anchor": "middle", "font-size": 11.5, fill: css("--muted") }, svg).textContent = b + " MiB";
+    });
+    const frag = t => kvAt(t, 256).fragmentation, bs = D.block_sizes;
+    $("kv-prose").innerHTML = `
+      <p>One token of KV for this model is 12 KiB: 2 × 24 layers × 2 KV heads × 64 dims × 2 bytes. A contiguous cache must reserve the maximum length, 2,048 tokens, for every sequence. A paged cache hands out 16-token blocks as a sequence grows.</p>
+      <p>At 256 MiB the paged pool admitted <b>${kvP.peak_running}</b> sequences to the contiguous pool's ${kvC.peak_running}, and left ${fmt(100 * frag("paged"), 0)}% of what it allocated unused, against ${fmt(100 * frag("contiguous"), 0)}%. When blocks run out the scheduler preempts the newest sequence and recomputes it later.</p>
+      <p>Block size barely matters here: 8, 16 and 32 tokens waste ${bs.map(b => fmt(100 * b.fragmentation, 1) + "%").join(", ")} and run within 1% of each other.</p>
+      <p>With the whole T4 for KV the two layouts serve the same throughput: paging pays off when memory is the constraint.</p>`;
+    $("kv-chart").querySelector("svg");
+  }
+
+  /* ---------- section: profile ---------- */
+  function drawProfile() {
+    const host = $("prof-chart"); host.innerHTML = "";
+    const docs = ["b32", "b32_graphs"].map(k => D.profile[k]).filter(Boolean);
+    const cats = [...new Set(docs.flatMap(d => Object.keys(d.ms_per_step_by_category)))];
+    const pal = ["--p1", "--p2", "--p3", "--p4", "--p5", "--p6", "--p7", "--p8"].map(css);
+    const W = Math.max(320, host.clientWidth), rowH = 54, m = { l: W < 520 ? 92 : 150, r: 60, t: 8, b: 34 }, Hh = m.t + m.b + rowH * docs.length;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: "img", "aria-label": "Milliseconds per decode step at batch 32, by category, eager versus CUDA graphs." }, host);
+    const max = Math.max(...docs.map(d => d.wall_ms_per_step)), ticks = niceTicks(0, max * 1.02), top = ticks[ticks.length - 1];
+    const x = v => m.l + v / top * (W - m.l - m.r);
+    ticks.forEach(t => { el("line", { x1: x(t), x2: x(t), y1: m.t, y2: Hh - m.b, stroke: css("--rule") }, svg); el("text", { x: x(t), y: Hh - m.b + 16, "text-anchor": "middle", "font-size": 11.5, fill: css("--muted") }, svg).textContent = t; });
+    el("text", { x: m.l + (W - m.l - m.r) / 2, y: Hh - 4, "text-anchor": "middle", "font-size": 12, fill: css("--ink-2") }, svg).textContent = "ms per decode step, batch 32";
+    docs.forEach((d, i) => {
+      const y0 = m.t + i * rowH + 10; let acc = 0;
+      el("text", { x: m.l - 10, y: y0 + 21, "text-anchor": "end", "font-size": 12.5, fill: css("--ink") }, svg).textContent = d.cuda_graphs ? "CUDA graphs" : "eager";
+      cats.forEach((c, j) => {
+        const v = d.ms_per_step_by_category[c] || 0; if (!v) return;
+        el("rect", { x: x(acc), y: y0, width: Math.max(0.5, x(acc + v) - x(acc) - 2), height: 32, rx: 3, fill: pal[j % pal.length] }, svg);
+        acc += v;
+      });
+      el("text", { x: x(acc) + 8, y: y0 + 21, "font-size": 12.5, fill: css("--ink"), "font-weight": 600 }, svg).textContent = fmt(d.wall_ms_per_step) + " ms";
+    });
+    legend($("prof-legend"), cats.map((c, j) => ({ label: c, color: pal[j % pal.length] })));
+    const e = docs[0].ms_per_step_by_category, g = docs[1] ? docs[1].ms_per_step_by_category : null, idle = Object.keys(e).find(k => k.startsWith("GPU idle"));
+    const b1 = D.batch1;
+    $("prof-caption").textContent = `Eager, the GPU sits idle for ${fmt(e[idle])} of ${fmt(docs[0].wall_ms_per_step)} ms waiting for Python to launch about 1,250 small kernels; the matrix multiplications take ${fmt(e.matmul, 1)} ms. Replaying a recorded CUDA graph launches the whole forward pass at once${g ? `: ${fmt(docs[1].wall_ms_per_step)} ms per step` : ""}. At batch 1, decode drops from ${fmt(b1.ours_paged.decode_ms_per_token, 1)} to ${fmt(b1.ours_paged_cuda_graphs.decode_ms_per_token, 1)} ms per token (HuggingFace generate: ${fmt(b1.hf_generate.decode_ms_per_token, 1)} ms).`;
+  }
+
+  /* ---------- section: graphs ---------- */
+  function drawGraphs() {
+    const w = state.gworkload, green = css("--s-e");
+    const ser = [
+      { key: "D", label: "eager (D)", short: "eager", color: css("--s-d"), marker: "circle" },
+      { key: "E-pow2", label: "graphs at every batch, power-of-two buckets", short: "pow-2", color: green, dash: "2 4", marker: "circle" },
+      { key: "E-ctx128", label: "graphs at every batch, 128-token buckets", short: "128-token", color: green, dash: "8 4", marker: "triangle" },
+      { key: "E", label: "graphs up to batch 32 (final)", short: "final", color: green, marker: "square" },
+    ].map(s => ({ ...s, points: series(s.key, w, "concurrency").filter(r => r.load >= 8).map(r => ({ xk: r.load, y: r.tok_s })) }));
+    legend($("graph-legend"), ser);
+    lineChart($("graph-chart"), { series: ser, height: 300, ylog: false, yfmt: v => fmt(v), vfmt: v => fmt(v) + " tok/s",
+      xlabel: xk => String(xk), xlabelLong: xk => `${xk} users in flight`, xtitle: "users in flight", ytitle: "output tokens / s",
+      aria: "Throughput of three CUDA-graph versions against eager decoding by users in flight." });
+    const g = k => n => row(k, "fixed", "concurrency", n).tok_s;
+    const d = g("D"), p2 = g("E-pow2"), c1 = g("E-ctx128"), e = g("E");
+    $("graph-prose").innerHTML = `
+      <p>A graph records the decode forward pass once and replays it with one launch, but it needs fixed shapes: each one is captured for a batch size and a context length, and shorter sequences are padded and masked.</p>
+      <p><b>Graphs at every batch size</b> beat eager ${(p2(8) / d(8)).toFixed(1)}× at 8 users and lost ${Math.round(100 * (1 - p2(128) / d(128)))}% at 128. With power-of-two buckets a 640-token batch attended over 1,024 positions, and at batch 128 the step is bound by reading the KV cache, not by launches.</p>
+      <p><b>Buckets every 128 tokens</b> cut the padding: ${fmt(c1(128))} tok/s at 128 users, still under eager's ${fmt(d(128))}. They need 128 graphs and 1.3 GB, which the first attempt did not have.</p>
+      <p><b>Graphs up to batch 32</b>, eager above, wins at every load: ${(e(8) / d(8)).toFixed(1)}× at 8 users, ${(e(32) / d(32)).toFixed(1)}× at 32, and ${fmt(e(128))} vs ${fmt(d(128))} tok/s at 128.</p>`;
+  }
+
+  /* ---------- section: tradeoffs ---------- */
+  function drawCards() {
+    const ms = v => fmt(v * 1e3) + " ms", sec = v => v >= 1 ? fmt(v, 1) + " s" : fmt(v * 1e3) + " ms";
+    const pf = row("D-prefill_first", "mixed", "rate", 8), df = row("D-decode_first", "mixed", "rate", 8);
+    const un = row("D-unchunked", "mixed", "rate", 16), ch = row("D-chunked512", "mixed", "rate", 16);
+    const po = row("D-prefix_off", "shared_prefix", "rate", "all"), pn = row("D-prefix_on", "shared_prefix", "rate", "all");
+    const [rc, sw] = H.overload;
+    const card = (q, verdict, a, b, lines, note) => `<div class="card"><div class="q">${q}</div><div class="verdict">${verdict}</div>
+      <div class="ab"><span class="h"></span><span class="h">${a}</span><span class="h">${b}</span>${lines.map(([k, x, y, better]) => `<span>${k}</span><span class="${better === 0 ? "better" : ""}">${x}</span><span class="${better === 1 ? "better" : ""}">${y}</span>`).join("")}</div>
+      <p class="note">${note}</p></div>`;
+    $("cards").innerHTML = [
+      card("Prefill-first or decode-first?", "A trade between the first token and the smoothness of the rest", "prefill-first", "decode-first",
+        [["p50 TTFT", ms(pf.ttft_p50), ms(df.ttft_p50), 0], ["p99 TPOT", ms(pf.tpot_p99), ms(df.tpot_p99), 1]],
+        "Mixed workload at 8 requests/s. Decode-first keeps streams smooth by making new requests wait; prefill-first admits them at once and running streams stutter."),
+      card("Chunked prefill?", "Yes under load: long prompts stop stalling every stream", "whole prompts", "512-token chunks",
+        [["p99 TPOT", ms(un.tpot_p99), ms(ch.tpot_p99), 1], ["p99 TTFT", sec(un.ttft_p99), sec(ch.ttft_p99), 1], ["tokens / s", fmt(un.tok_s), fmt(ch.tok_s), 1]],
+        "Mixed workload at 16 requests/s. Each step decodes every running sequence and fills the leftover token budget with prompt chunks (Sarathi-Serve)."),
+      card("Prefix caching?", "Yes for shared system prompts", "off", "on",
+        [["tokens / s", fmt(po.tok_s), fmt(pn.tok_s), 1], ["p50 TTFT", sec(po.ttft_p50), sec(pn.ttft_p50), 1]],
+        "200 requests sharing a 1,000-token prefix, all at once. Full blocks are hashed and shared with reference counts; freed ones stay cached until evicted."),
+      card("Recompute or swap when memory runs out?", "A wash for a 0.5B model, so recompute", "recompute", "swap",
+        [["tokens / s", fmt(rc.throughput_tok_s), fmt(sw.throughput_tok_s), -1], ["preemptions", fmt(rc.preemptions), fmt(sw.preemptions), -1]],
+        "400 ShareGPT requests in a 64 MiB pool. Prefill is cheap for a model this small, and recompute needs no pinned host memory."),
+    ].join("");
+  }
+
+  /* ---------- section: correctness ---------- */
+  function drawFacts() {
+    const facts = [
+      ["50 × 64 tokens", "match HuggingFace in fp32 token for token, through every engine configuration: paged, contiguous, prefix caching, chunked prefill, forced preemption by recompute and by swap, static batching."],
+      [String(D.fp16_tolerance), "is how far HuggingFace's own fp16 logits move between batch 1 and batch 8 on the T4. Our fp16 logits must stay within it, and a token may differ only at a near-tie."],
+      ["5 of 5", "GPU-only tests pass on the T4: fp16 logits, golden near-ties, batch invariance, and CUDA graphs against eager, exact in fp32."],
+      ["97 tests", "run on a laptop CPU in about two minutes with a tiny random model: layers, allocator properties, scheduler decisions, the API contract and disconnects."],
+      [fmt(D.soak.totals.completed) + " / " + fmt(D.soak.totals.completed + D.soak.totals.failed), `requests completed in a 30-minute soak at 4 requests/s; GPU memory and all ${fmt(D.soak.free_blocks[0])} KV blocks identical at every idle check.`],
+      ["1 near-tie", "in 3,200 golden positions: a 9.5e-6 gap where HuggingFace disagrees with itself, recorded and allowed, and no other divergence."],
+    ];
+    $("facts").innerHTML = facts.map(([k, t]) => `<div class="fact"><div class="k num">${k}</div><p>${t}</p></div>`).join("");
+  }
+
+  /* ---------- wiring ---------- */
+  function bindSeg(id, key, draw) {
+    $(id).addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return;
+      state[key] = b.dataset.v;
+      $(id).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      draw();
+    });
+  }
+  bindSeg("ctl-workload", "workload", drawVllm); bindSeg("ctl-load", "load", drawVllm); bindSeg("ctl-metric", "metric", drawVllm);
+  bindSeg("ctl-gworkload", "gworkload", drawGraphs);
+  function drawAll() { lede(); drawVllm(); drawPeak(); drawKV(); drawProfile(); drawGraphs(); drawCards(); drawFacts(); }
+  drawAll();
+  let t; window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(drawAll, 120); });
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll); } catch (e) {}
+  new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+})();
+</script>
+</body>
+</html>

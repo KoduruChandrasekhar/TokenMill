@@ -1,0 +1,19 @@
+{
+ "batch": 32,
+ "prompt_len": 256,
+ "steps": 50,
+ "device": "cuda",
+ "cuda_graphs": true,
+ "wall_ms_per_step": 34.04604862000269,
+ "ms_per_step_by_category": {
+  "GPU idle (Python + launch overhead)": 19.660314140002505,
+  "matmul": 5.887686840000007,
+  "kv gather": 3.3408335399999114,
+  "norm / rope / act": 2.343429800000113,
+  "attention": 1.7506888799999978,
+  "copies": 0.8914502000000281,
+  "other": 0.10554352000000594,
+  "sampling": 0.06610169999999928
+ },
+ "trace": "decode_trace_b32_graphs.json"
+}

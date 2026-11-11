@@ -1,0 +1,77 @@
+{
+ "throughput_vs_batch": [
+  {
+   "batch_size": 1,
+   "throughput_tok_s": 35.15444810065891,
+   "wall_s": 10.92322652599978
+  },
+  {
+   "batch_size": 2,
+   "throughput_tok_s": 71.99238907710189,
+   "wall_s": 10.667794330001925
+  },
+  {
+   "batch_size": 4,
+   "throughput_tok_s": 140.5467855037344,
+   "wall_s": 10.928745146997244
+  },
+  {
+   "batch_size": 8,
+   "throughput_tok_s": 266.0401248983796,
+   "wall_s": 11.547130348000792
+  },
+  {
+   "batch_size": 16,
+   "throughput_tok_s": 504.40800368799927,
+   "wall_s": 12.180615602999751
+  },
+  {
+   "batch_size": 32,
+   "throughput_tok_s": 735.5386844973176,
+   "wall_s": 16.70612336100021
+  }
+ ],
+ "mixed_static": {
+  "wall_s": 58.31763211100042,
+  "generated_tokens": 17408,
+  "throughput_tok_s": 298.50320340280655,
+  "peak_running": 16,
+  "steps": 2048,
+  "preemptions": 0,
+  "waste": 0.46966731898238745,
+  "slot_steps": 32704,
+  "useful_slot_steps": 17344
+ },
+ "mixed_continuous": {
+  "wall_s": 32.879358954000054,
+  "generated_tokens": 17408,
+  "throughput_tok_s": 529.4507117475953,
+  "peak_running": 16,
+  "steps": 1187,
+  "preemptions": 0
+ },
+ "args": {
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "dtype": "auto",
+  "device": "auto",
+  "batch_sizes": "1,2,4,8,16,32",
+  "batches_per_size": 3,
+  "input_len": 512,
+  "output_len": 128,
+  "mixed_requests": 64,
+  "mixed_batch": 16
+ },
+ "env": {
+  "python": "3.13.15",
+  "platform": "Linux-6.18.55+-x86_64-with-glibc2.39",
+  "time": 1793568767.9603536,
+  "torch": "2.11.0+cu128",
+  "transformers": "5.14.1",
+  "httpx": "0.28.1",
+  "cuda": "12.8",
+  "gpu": "Tesla T4",
+  "git_commit": "",
+  "nvidia_smi": "Tesla T4, 580.178.04, 15360 MiB, 13951 MiB\nTesla T4, 580.178.04, 15360 MiB, 3 MiB",
+  "source_digest": "sha256:7a18f41f2cec52638ac957819c792d1cfe76ec7ba86df4bc7ee165e3563a1cd5 built 2026-11-01 21:33:44 (63 files)"
+ }
+}

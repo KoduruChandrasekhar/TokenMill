@@ -1,0 +1,45 @@
+{
+ "results": {
+  "ours_paged": {
+   "ttft_ms": 25.938492002751445,
+   "decode_ms_per_token": 27.32445659839725,
+   "tokens_per_s": 36.611759248584946,
+   "decode_tokens_per_s": 36.597251125523066
+  },
+  "ours_paged_cuda_graphs": {
+   "ttft_ms": 25.807246998738265,
+   "decode_ms_per_token": 10.200853629920477,
+   "tokens_per_s": 96.87314248124338,
+   "decode_tokens_per_s": 98.03101154856937
+  },
+  "hf_generate": {
+   "ttft_ms": 48.960907999571646,
+   "decode_ms_per_token": 29.118552677179586,
+   "tokens_per_s": 34.160505984419956,
+   "decode_tokens_per_s": 34.342366225629995
+  },
+  "ours_vs_hf_decode_ratio": 0.9383864954184903
+ },
+ "args": {
+  "model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "prompt_len": 512,
+  "output_len": 128,
+  "reps": 5,
+  "skip_hf": false
+ },
+ "device": "cuda",
+ "dtype": "torch.float16",
+ "env": {
+  "python": "3.13.15",
+  "platform": "Linux-6.18.55+-x86_64-with-glibc2.39",
+  "time": 1793568592.811121,
+  "torch": "2.11.0+cu128",
+  "transformers": "5.14.1",
+  "httpx": "0.28.1",
+  "cuda": "12.8",
+  "gpu": "Tesla T4",
+  "git_commit": "",
+  "nvidia_smi": "Tesla T4, 580.178.04, 15360 MiB, 2601 MiB\nTesla T4, 580.178.04, 15360 MiB, 3 MiB",
+  "source_digest": "sha256:7a18f41f2cec52638ac957819c792d1cfe76ec7ba86df4bc7ee165e3563a1cd5 built 2026-11-01 21:33:44 (63 files)"
+ }
+}
